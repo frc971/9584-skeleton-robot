@@ -50,7 +50,7 @@ a log (with `--robot robot/2027.toml`), so renaming one has the same cost as the
 | Signal | Meaning |
 |---|---|
 | `Vision/Accepted` (bool[]) | whether each estimate in `Vision/Poses` was applied |
-| `Vision/RejectReasons` (string[]) | `ACCEPTED` or why not: `NO_TAGS`, `OFF_FIELD`, `HEADING_MISMATCH`, `SPINNING`, `TOO_FAR`, `AMBIGUOUS`, `LARGE_CORRECTION` (see `vision/RejectReason.java`) |
+| `Vision/RejectReasons` (string[]) | `ACCEPTED` or why not: `NO_TAGS`, `OFF_FIELD`, `HEADING_MISMATCH`, `SPINNING`, `TOO_FAR`, `AMBIGUOUS`, `LARGE_CORRECTION`, `FIELD_CENTER` (see `vision/RejectReason.java`) |
 | `Vision/ResidualMeters`, `Vision/ResidualDegrees` | how far each estimate was from the fused pose when it arrived |
 | `Vision/EstimateCameras`, `CaptureTimestamps`, `Ambiguities` | which camera, when, and its worst single-tag ambiguity |
 | `Vision/AcceptedPoses` | only the applied estimates (handy in AdvantageScope) |
@@ -58,7 +58,7 @@ a log (with `--robot robot/2027.toml`), so renaming one has the same cost as the
 | `Vision/Cameras/<name>/Connected`, `Fps`, `CpuTempC`, `CpuUsage`, `RamPercent`, `Pipeline` | camera health (Connected = its heartbeat is advancing) |
 | `Vision/Cameras/<name>/MegaTag1HeadingErrorDeg`, `Vision/GyroDriftDegrees` | while disabled: gyro vs the heading the tags give (MegaTag2 cannot see gyro drift) |
 | `Vision/Rewind/SaveCount`, `Vision/Rewind/LastReason` | Limelight Rewind video saves (match end, or the Start button) |
-| `Vision/SnapshotCount`, `Vision/LastSnapshot` | still frames saved when an estimate was rejected for HEADING_MISMATCH, LARGE_CORRECTION or OFF_FIELD |
+| `Vision/SnapshotCount`, `Vision/LastSnapshot` | still frames saved when an estimate was rejected for HEADING_MISMATCH, LARGE_CORRECTION, OFF_FIELD or FIELD_CENTER |
 | `Drive/OdometryPose` | wheels + gyro only, never corrected by vision |
 | `Drive/VisionCorrectionMeters` | distance between `Drive/Pose` and `Drive/OdometryPose`: how far vision has moved the pose overall |
 | `Drive/GyroYawDegrees` | raw Pigeon heading (unaffected by pose resets) |

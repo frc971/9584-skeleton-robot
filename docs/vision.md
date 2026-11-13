@@ -65,8 +65,17 @@ using a real case from a log where you have one (see `mttdFieldCenterBadSolveIsR
 
 MegaTag2 trusts the gyro completely, so a drifted gyro gives confident, wrong positions that no
 filter rule can catch. While disabled, `Vision` compares the gyro to the heading MegaTag1 solves
-from the tags (needs 2+ tags in view). More than 5 degrees off raises a dashboard warning to
-re-zero heading. It never changes the heading by itself.
+from the tags (needs 2+ tags in view). It uses the median over the last second of camera frames
+and waits for at least 10 of them (`GyroDriftCheck`), because any single MegaTag1 frame can be a bad
+solve: the first version warned "87 degrees off" on one. More than 5 degrees off raises a dashboard
+warning to re-zero heading. It never changes the heading by itself.
+
+## The field-center bad solve
+
+The Limelight sometimes returns exactly field center, facing exactly 0 degrees (2026 mttd q8: 20
+frames, a 5 m pose jump). The heading check catches it only when the robot is NOT facing 0, so it
+has its own rule, `FIELD_CENTER`, matched on that exact signature (within 5 cm and 0.5 degrees). A
+real estimate near the center at any other heading is not affected.
 
 ## Rewind video and snapshots
 
@@ -76,7 +85,7 @@ Limelight 4 keeps a rolling video buffer. The code saves it:
 - when the driver presses **Start** (last 30 s), for "that looked wrong" moments in practice.
 
 It also saves one still frame when an estimate is rejected for HEADING_MISMATCH,
-LARGE_CORRECTION or OFF_FIELD while enabled, at most once every 2 s.
+LARGE_CORRECTION, OFF_FIELD or FIELD_CENTER while enabled, at most once every 2 s.
 
 Each save is logged (`Vision/Rewind/*`, `Vision/SnapshotCount`) and printed to the console, so the
 log says which match a video belongs to. Watch them in the camera's web UI (Rewind tab), or download

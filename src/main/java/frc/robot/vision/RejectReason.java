@@ -33,5 +33,13 @@ public enum RejectReason {
      * Single-tag estimate that would move the pose further than any real correction. Multi-tag
      * estimates are never rejected for this, so the robot can always recover from a bad pose.
      */
-    LARGE_CORRECTION
+    LARGE_CORRECTION,
+    /**
+     * Exactly field center, facing exactly 0 degrees: the 2026 mttd bad solve (repeated for 20
+     * frames in q8, 5 m pose jump). HEADING_MISMATCH only catches it when the robot is not facing
+     * 0 degrees; facing 0, it used to pass every other rule, multi-tag included. Most likely the
+     * Limelight reporting a zero pose in its own center-origin field frame (an inference, not
+     * confirmed with Limelight).
+     */
+    FIELD_CENTER
 }

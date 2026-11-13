@@ -54,7 +54,35 @@ class VisionFilterTest {
     @Test
     void mttdFieldCenterBadSolveIsRejected() {
         var bad = estimate(8.27, 4.03, 0, 2, 3.0, 0.0);
+        assertEquals(RejectReason.FIELD_CENTER, reason(bad, 0, Double.NaN));
+    }
+
+    @Test
+    void offGyroEstimateAwayFromCenterIsHeadingMismatch() {
+        var bad = estimate(3.0, 4.0, 90, 2, 2.0, 0.0);   // robot faces 30
         assertEquals(RejectReason.HEADING_MISMATCH, reason(bad, 0, Double.NaN));
+    }
+
+    /**
+     * The same bad solve while the robot really IS facing 0 degrees: the heading check cannot see
+     * it, and multi-tag estimates are exempt from LARGE_CORRECTION. Before FIELD_CENTER this was
+     * ACCEPTED, a 5 m jump (found on a simSmoke log during the BLine auto).
+     */
+    @Test
+    void fieldCenterBadSolveIsRejectedEvenWhenRobotFacesZero() {
+        Pose2d facingZero = new Pose2d(3.0, 2.5, Rotation2d.kZero);
+        var bad = new VisionMeasurement("ll", new Pose2d(8.27, 4.03, Rotation2d.kZero), 10, 2, 3.0, 0, 30, true);
+        assertEquals(RejectReason.FIELD_CENTER, filter.evaluate(bad, facingZero, 0, Double.NaN).reason());
+    }
+
+    @Test
+    void nearFieldCenterIsNotTheSignature() {
+        Pose2d robot = new Pose2d(8.0, 4.0, Rotation2d.fromDegrees(5));
+        // 20 cm from center, or at center but facing 5 degrees: real estimates, kept.
+        var near = new VisionMeasurement("ll", new Pose2d(8.07, 4.035, Rotation2d.fromDegrees(5)), 10, 2, 2, 0, 30, true);
+        var turned = new VisionMeasurement("ll", new Pose2d(8.27, 4.035, Rotation2d.fromDegrees(5)), 10, 2, 2, 0, 30, true);
+        assertTrue(filter.evaluate(near, robot, 0, Double.NaN).accepted());
+        assertTrue(filter.evaluate(turned, robot, 0, Double.NaN).accepted());
     }
 
     @Test

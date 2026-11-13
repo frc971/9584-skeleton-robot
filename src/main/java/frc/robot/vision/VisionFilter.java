@@ -32,6 +32,10 @@ public final class VisionFilter {
      *                                 pose is rejected. Multi-tag estimates are exempt so the robot
      *                                 can recover from a wrong pose. (mttd q8 jumps were single-tag
      *                                 estimates 2-5 m off; the analyzer's replay suggests 1.0 m.)
+     * @param fieldCenterToleranceMeters / fieldCenterHeadingToleranceDegrees how close to "exactly
+     *                                 field center, facing 0" counts as the bad-solve signature
+     *                                 (mttd: 8.27, 4.03 on a 16.54 x 8.07 field; the analyzer's
+     *                                 replay uses the same 0.05 m and 0.5 deg)
      */
     public record Config(
         double fieldLengthMeters,
@@ -41,10 +45,12 @@ public final class VisionFilter {
         double maxSingleTagYawRateRadPerSec,
         double maxTagDistanceMeters,
         double maxSingleTagAmbiguity,
-        double maxSingleTagCorrectionMeters) {
+        double maxSingleTagCorrectionMeters,
+        double fieldCenterToleranceMeters,
+        double fieldCenterHeadingToleranceDegrees) {
 
         public static Config defaults(double fieldLengthMeters, double fieldWidthMeters) {
-            return new Config(fieldLengthMeters, fieldWidthMeters, 0.1, 15.0, 3.0, 5.0, 0.2, 1.0);
+            return new Config(fieldLengthMeters, fieldWidthMeters, 0.1, 15.0, 3.0, 5.0, 0.2, 1.0, 0.05, 0.5);
         }
     }
 
@@ -94,6 +100,9 @@ public final class VisionFilter {
         if (m.timestampSeconds() == lastTimestampSeconds) {
             return RejectReason.DUPLICATE;
         }
+        if (isFieldCenterSignature(m.pose())) {
+            return RejectReason.FIELD_CENTER;
+        }
         if (!onField(m.pose())) {
             return RejectReason.OFF_FIELD;
         }
@@ -114,6 +123,14 @@ public final class VisionFilter {
             return RejectReason.LARGE_CORRECTION;
         }
         return RejectReason.ACCEPTED;
+    }
+
+    /** True for the known bad solve: exactly field center, facing exactly 0 degrees. */
+    public boolean isFieldCenterSignature(Pose2d pose) {
+        double dx = pose.getX() - config.fieldLengthMeters() / 2.0;
+        double dy = pose.getY() - config.fieldWidthMeters() / 2.0;
+        return Math.hypot(dx, dy) < config.fieldCenterToleranceMeters()
+            && Math.abs(pose.getRotation().getDegrees()) < config.fieldCenterHeadingToleranceDegrees();
     }
 
     private boolean onField(Pose2d pose) {

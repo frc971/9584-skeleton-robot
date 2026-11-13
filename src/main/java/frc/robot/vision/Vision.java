@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import org.littletonrobotics.junction.Logger;
 
@@ -70,6 +71,8 @@ public class Vision extends SubsystemBase {
     private final PoseEstimator estimator;
 
     private final Map<String, Double> lastTimestamps = new HashMap<>();
+    private final Map<String, Double> lastMegaTag1Timestamps = new HashMap<>();
+    private final GyroDriftCheck gyroDrift = new GyroDriftCheck();
     private final EnumMap<RejectReason, Integer> reasonCounts = new EnumMap<>(RejectReason.class);
     private final Alert gyroDriftAlert = new Alert("", AlertType.kWarning);
     private final List<Alert> cameraAlerts = new ArrayList<>();
@@ -228,30 +231,41 @@ public class Vision extends SubsystemBase {
     /**
      * MegaTag2 trusts the gyro completely, so a drifted gyro produces confident, wrong positions
      * that no filter rule can catch. While disabled, compare the gyro to the heading MegaTag1
-     * solves from tags alone. This only reports; it never changes the heading, because resetting
-     * the gyro from vision is a decision a person should make (pit, before the match).
+     * solves from tags alone, over many frames (see {@link GyroDriftCheck}: one bad frame must not
+     * raise the warning). This only reports; it never changes the heading, because resetting the
+     * gyro from vision is a decision a person should make (pit, before the match).
      */
     private void checkGyroWhileDisabled(Pose2d robotPose) {
+        double now = Timer.getFPGATimestamp();
         if (!DriverStation.isDisabled()) {
+            // The check is about the heading the match will START with; enabled data is stale for that.
+            gyroDrift.clear();
+            gyroDriftAlert.set(false);
             return;
         }
-        double worst = Double.NaN;
         for (VisionCamera camera : cameras) {
             Optional<VisionMeasurement> mt1 = camera.megaTag1();
-            if (mt1.isEmpty() || mt1.get().tagCount() < kGyroCheckMinTags) {
+            if (mt1.isEmpty() || mt1.get().tagCount() < kGyroCheckMinTags
+                || filter.isFieldCenterSignature(mt1.get().pose())) {
                 continue;
             }
-            double err = mt1.get().pose().getRotation().minus(robotPose.getRotation()).getDegrees();
-            Logger.recordOutput(kLog + "Cameras/" + camera.name() + "/MegaTag1HeadingErrorDeg", err);
-            if (Double.isNaN(worst) || Math.abs(err) > Math.abs(worst)) {
-                worst = err;
+            VisionMeasurement m = mt1.get();
+            // The same frame is returned every loop until the camera produces a new one: count it once.
+            if (m.timestampSeconds() == lastMegaTag1Timestamps.getOrDefault(camera.name(), Double.NaN)) {
+                continue;
             }
+            lastMegaTag1Timestamps.put(camera.name(), m.timestampSeconds());
+            double err = m.pose().getRotation().minus(robotPose.getRotation()).getDegrees();
+            Logger.recordOutput(kLog + "Cameras/" + camera.name() + "/MegaTag1HeadingErrorDeg", err);
+            gyroDrift.add(now, err);
         }
-        if (!Double.isNaN(worst)) {
-            Logger.recordOutput(kLog + "GyroDriftDegrees", worst);
+        OptionalDouble drift = gyroDrift.driftDegrees(now);
+        if (drift.isPresent()) {
+            double d = drift.getAsDouble();
+            Logger.recordOutput(kLog + "GyroDriftDegrees", d);
             gyroDriftAlert.setText(String.format(
-                "Gyro heading is %.1f deg off what the tags say. Re-zero heading before the match.", worst));
-            gyroDriftAlert.set(Math.abs(worst) > kGyroDriftAlertDegrees);
+                "Gyro heading is %.1f deg off what the tags say. Re-zero heading before the match.", d));
+            gyroDriftAlert.set(Math.abs(d) > kGyroDriftAlertDegrees);
         }
     }
 
@@ -288,7 +302,8 @@ public class Vision extends SubsystemBase {
     private void maybeSnapshot(VisionCamera camera, RejectReason reason) {
         boolean interesting = reason == RejectReason.HEADING_MISMATCH
             || reason == RejectReason.LARGE_CORRECTION
-            || reason == RejectReason.OFF_FIELD;
+            || reason == RejectReason.OFF_FIELD
+            || reason == RejectReason.FIELD_CENTER;
         double now = Timer.getFPGATimestamp();
         if (!interesting || !DriverStation.isEnabled() || now - lastSnapshotSec < kSnapshotIntervalSec) {
             return;
