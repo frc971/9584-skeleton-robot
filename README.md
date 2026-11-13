@@ -55,3 +55,10 @@ signals for students.
 
 For WPILib 2027 and SystemCore, see [docs/porting-2027.md](docs/porting-2027.md). This repo builds on
 WPILib 2026 until then.
+
+## License
+
+Apache-2.0 ([LICENSE](LICENSE)). Parts of this code descend from WCP's starter code via the 2026
+robot (`9584-wcp-code-2026`), which is MIT-licensed; that notice is kept in
+[LICENSE-WCP](LICENSE-WCP) and must stay with the code. WPILib's license is in
+[WPILib-License.md](WPILib-License.md).
