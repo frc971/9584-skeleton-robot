@@ -42,7 +42,10 @@ All `Drive/...` and `Vision/...` names below are under `/RealOutputs/`.
 
 AdvantageKit records `/DriverStation/*`, `/SystemStats/*` and `LoggedRobot/FullCycleMS` by itself.
 
-## New in this skeleton (asked for in the analyzer's GEMINI.md, not yet read by it)
+## New in this skeleton (asked for in the analyzer's GEMINI.md)
+
+The analyzer's vision check, its cameras check and `vision_replay.py` read these when they are in
+a log (with `--robot robot/2027.toml`), so renaming one has the same cost as the table above.
 
 | Signal | Meaning |
 |---|---|

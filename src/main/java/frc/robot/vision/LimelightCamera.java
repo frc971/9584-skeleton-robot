@@ -111,7 +111,11 @@ public class LimelightCamera implements VisionCamera {
     public CameraHealth health() {
         double now = Timer.getFPGATimestamp();
         double heartbeat = LimelightHelpers.getLimelightNTDouble(name, "hb");
-        if (heartbeat != lastHeartbeat) {
+        if (Double.isNaN(lastHeartbeat)) {
+            // First reading is a baseline, not evidence of frames: a camera that is not plugged in
+            // reads 0 here, and counting that as a change would show it connected at boot.
+            lastHeartbeat = heartbeat;
+        } else if (heartbeat != lastHeartbeat) {
             lastHeartbeat = heartbeat;
             lastHeartbeatChangeSec = now;
         }
