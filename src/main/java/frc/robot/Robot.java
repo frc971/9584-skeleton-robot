@@ -11,8 +11,6 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 
-import com.pathplanner.lib.commands.PathfindingCommand;
-
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -79,7 +77,6 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void robotInit() {
-        CommandScheduler.getInstance().schedule(PathfindingCommand.warmupCommand());
         if (RobotBase.isSimulation()) {
             DriverStation.silenceJoystickConnectionWarning(true);
         }
@@ -116,12 +113,18 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void autonomousInit() {
-        robotContainer.resetPoseForAuto();
+        // The auto's first path resets the pose to its own start point (BLine withPoseReset).
         autonomousCommand = robotContainer.getAutonomousCommand();
         if (autonomousCommand != null) {
             CommandScheduler.getInstance().schedule(autonomousCommand);
         }
     }
+
+    @Override
+    public void autonomousPeriodic() {}
+
+    @Override
+    public void teleopPeriodic() {}
 
     @Override
     public void teleopInit() {

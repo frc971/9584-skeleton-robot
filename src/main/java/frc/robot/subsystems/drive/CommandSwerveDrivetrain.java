@@ -13,10 +13,6 @@ import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -41,7 +37,7 @@ import frc.robot.vision.Vision;
 
 /**
  * The swerve drivetrain: CTRE's generated {@link TunerSwerveDrivetrain} plus the team's overrides,
- * diagnostics, logging, PathPlanner setup and simulation.
+ * diagnostics, logging and simulation. Autonomous path following (BLine) is in frc.robot.auto.Autos.
  *
  * <p>Regenerating the drivetrain in Tuner X replaces {@code generated/TunerConstants.java} only.
  * Nothing in this file or in {@link SwerveConfigOverrides} needs to change when that happens.
@@ -62,7 +58,6 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     private boolean m_hasAppliedOperatorPerspective = false;
 
     private final SwerveRequest.SwerveDriveBrake lockWheelsRequest = new SwerveRequest.SwerveDriveBrake();
-    private final SwerveRequest.ApplyRobotSpeeds pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
     private final SwerveRequest.Idle idleRequest = new SwerveRequest.Idle();
 
     private final StatusSignal<Angle> pitchSignal;
@@ -100,32 +95,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         SwerveDriveState state = getState();
         rawOdometry = new SwerveDriveOdometry(getKinematics(), state.RawHeading, state.ModulePositions, state.Pose);
 
-        configureAutoBuilder();
         if (Utils.isSimulation()) {
             startSimThread();
-        }
-    }
-
-    private void configureAutoBuilder() {
-        try {
-            var config = RobotConfig.fromGUISettings();
-            AutoBuilder.configure(
-                () -> getState().Pose,
-                this::resetPose,
-                () -> getState().Speeds,
-                (speeds, feedforwards) -> setControl(
-                    pathApplyRobotSpeeds
-                        .withSpeeds(speeds)
-                        .withWheelForceFeedforwardsX(feedforwards.robotRelativeForcesXNewtons())
-                        .withWheelForceFeedforwardsY(feedforwards.robotRelativeForcesYNewtons())),
-                new PPHolonomicDriveController(
-                    new PIDConstants(10, 0, 0),   // translation
-                    new PIDConstants(7, 0, 0)),   // rotation
-                config,
-                () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
-                this);
-        } catch (Exception ex) {
-            DriverStation.reportError("Failed to load PathPlanner config and configure AutoBuilder", ex.getStackTrace());
         }
     }
 

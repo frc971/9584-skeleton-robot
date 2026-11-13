@@ -23,7 +23,8 @@ import edu.wpi.first.wpilibj.simulation.XboxControllerSim;
  *   python3 ../9584-log-analyzer/tools/match_report.py logs/&lt;that file&gt; --robot ../9584-log-analyzer/robot/2027.toml
  * </pre>
  *
- * <p>It drives with the driver controller through the real ManualDriveCommand, and publishes fake
+ * <p>It runs the "Example Forward 1m" BLine auto (selected on the dashboard chooser, as a driver
+ * would), then drives teleop with the driver controller through the real ManualDriveCommand, and publishes fake
  * Limelight data on the same NetworkTables keys a real Limelight 4 uses, so the whole vision path
  * (LimelightHelpers parsing, filter, weighting, logging) runs. The fake camera includes the 2026
  * mttd q8 bad solve (field center, facing 0 degrees) and wild single-tag estimates, so rejections
@@ -38,9 +39,13 @@ public final class SimSmoke {
     }
 
     private static final String kCamera = "limelight-front";
-    private static final double kTeleopStart = 3.0;
-    private static final double kTeleopEnd = 15.0;
-    private static final double kExit = 18.0;
+    /** Selected on the dashboard chooser exactly as a driver would, by its display name. */
+    private static final String kAuto = "Example Forward 1m";
+    private static final double kAutoStart = 2.0;
+    private static final double kAutoEnd = 6.0;
+    private static final double kTeleopStart = 7.0;
+    private static final double kTeleopEnd = 17.0;
+    private static final double kExit = 20.0;
 
     private final Supplier<Pose2d> truePose;
     private final XboxControllerSim driver = new XboxControllerSim(0);
@@ -59,15 +64,17 @@ public final class SimSmoke {
         DriverStationSim.setEventName("SIMSMOKE");
         DriverStationSim.setEnabled(false);
         DriverStationSim.notifyNewData();
+        NetworkTableInstance.getDefault().getTable("SmartDashboard/Auto Mode").getEntry("selected").setString(kAuto);
         timer.start();
         System.out.println("SimSmoke: scripted match starting");
     }
 
     public void periodic() {
         double t = timer.get();
+        boolean auto = t >= kAutoStart && t < kAutoEnd;
         boolean teleop = t >= kTeleopStart && t < kTeleopEnd;
-        DriverStationSim.setAutonomous(false);
-        DriverStationSim.setEnabled(teleop);
+        DriverStationSim.setAutonomous(auto);
+        DriverStationSim.setEnabled(auto || teleop);
         drive(teleop ? t - kTeleopStart : -1);
         DriverStationSim.notifyNewData();
         publishFakeLimelight(t);
@@ -80,16 +87,15 @@ public final class SimSmoke {
     }
 
     /**
-     * Forward, turn in place, strafe, stop. Kept short and in open floor near the blue wall: the
-     * simulated field has real structures and a robot driven into one just sits there.
+     * Turn in place, strafe, stop (the auto already drove forward 1 m). Kept short and in open
+     * floor near the blue wall: the simulated field has real structures and a robot driven into one
+     * just sits there.
      */
     private void drive(double t) {
         double forward = 0, left = 0, rotate = 0;
-        if (t >= 0 && t < 1.0) {
-            forward = 0.6;
-        } else if (t >= 1.5 && t < 4.5) {
+        if (t >= 0.5 && t < 3.5) {
             rotate = 0.7;
-        } else if (t >= 5 && t < 6.5) {
+        } else if (t >= 4 && t < 5) {
             left = -0.6;  // field-centric, toward the right-hand wall, away from the hub
         }
         // ManualDriveCommand negates the sticks (stick up is negative Y on a real controller).

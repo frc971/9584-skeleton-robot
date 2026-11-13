@@ -15,6 +15,7 @@ game-specific code removed and the vision rewritten.
 | `generated/TunerConstants.java` | made by Tuner X. Replace it, never edit it |
 | `subsystems/drive/` | drivetrain, team overrides on top of Tuner X, per-module diagnostics, simulation |
 | `commands/ManualDriveCommand.java` | field-centric driving; holds heading 0.25 s after the driver stops turning |
+| `auto/Autos.java` | autonomous routines, followed with [BLine](https://github.com/edanliahovetsky/BLine-Lib). Paths are in `src/main/deploy/autos/paths/` |
 | `vision/` | Limelight localization. See [docs/vision.md](docs/vision.md) |
 | `sim/SimSmoke.java` | scripted headless sim match for checking logs |
 | `RobotContainer.java` | where subsystems are built and buttons are bound. Season mechanisms go here |
@@ -49,9 +50,25 @@ signals for students.
 2. Generate the drivetrain in Tuner X and replace `generated/TunerConstants.java`.
 3. Measure camera positions from CAD into `Constants.VisionConstants`, then do the known-pose test
    in [docs/vision.md](docs/vision.md).
-4. Update PathPlanner's robot settings (`src/main/deploy/pathplanner/settings.json`) and
-   `docs/analyzer-robot.toml`.
+4. Update `docs/analyzer-robot.toml`, and the robot size and speed limits BLine uses in
+   `src/main/deploy/autos/config.json`.
 5. Add mechanisms under `subsystems/` and bind them in `RobotContainer`.
+6. Draw the season's paths in the BLine GUI, list them in `Autos.AUTO_ROUTINES`, and register
+   what each path's event triggers do in `RobotContainer.registerAutoEvents()`. Delete the
+   "Example Forward 1m" routine once real ones exist.
+
+## Autos (BLine)
+
+Same structure as 971's skeleton robot and the training course's BLine lesson
+(`training-2026`, lesson 6): a routine is a list of path files run in order, the first path resets
+the pose to its own start, paths are drawn for blue and flipped on red, and a routine can offer a
+mirrored copy. Mechanism actions during a path are BLine event triggers (`lib_key` in the path
+file, registered with `Autos.registerEvent`). Everything BLine reports while following is logged
+under `Auto/FollowPath/...`; see [docs/logging.md](docs/logging.md).
+
+`./gradlew simSmoke` runs the example auto. In simulation it ends about 0.35 m past the path's end
+because the simulated drivetrain lags its speed commands; check overshoot on the real robot before
+tuning the path gains in `Autos`.
 
 For WPILib 2027 and SystemCore, see [docs/porting-2027.md](docs/porting-2027.md). This repo builds on
 WPILib 2026 until then.

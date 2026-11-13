@@ -44,8 +44,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
  *   <li><b>Drive slip current: 70 A.</b> The swerve API uses this as the drive stator limit. The
  *       generated 120 A is about twice what the tread can hold (115 lb, COF 1.2, 6.2:1, 2 in wheel
  *       works out to roughly 65-75 A), so above this the wheel just spins. Placeholder until it is
- *       measured against a wall in Tuner X. Keep driveCurrentLimit in the PathPlanner settings equal
- *       to this.</li>
+ *       measured against a wall in Tuner X.</li>
  *   <li><b>Steer limits: 40 A stator, 20 A supply.</b> The generator uses 60 A stator and no supply
  *       limit. Steering needs little torque, so lower limits cost nothing and reduce brownouts.</li>
  * </ul>

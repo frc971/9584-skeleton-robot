@@ -62,6 +62,8 @@ a log (with `--robot robot/2027.toml`), so renaming one has the same cost as the
 | `Drive/OdometryPose` | wheels + gyro only, never corrected by vision |
 | `Drive/VisionCorrectionMeters` | distance between `Drive/Pose` and `Drive/OdometryPose`: how far vision has moved the pose overall |
 | `Drive/GyroYawDegrees` | raw Pigeon heading (unaffected by pose resets) |
+| `Auto/Selected`, `Auto/SelectedLoaded`, `Auto/StartPose` | while disabled: the chosen auto, whether its path files loaded, and where to place the robot (already flipped for red) |
+| `Auto/FollowPath/...` | everything BLine reports while following a path: `pathTranslations` (the path), `robotTranslations` (where the robot went), `crossTrackError`, `rotationErrorDeg`, `remainingPathDistanceMeters`, `finished`, event trigger counts, and more |
 
 ### Reading the per-estimate arrays
 
