@@ -24,7 +24,7 @@ import edu.wpi.first.wpilibj.simulation.XboxControllerSim;
  * </pre>
  *
  * <p>It runs the "Example Forward 1m" BLine auto (selected on the dashboard chooser, as a driver
- * would), then drives teleop with the driver controller through the real ManualDriveCommand, and publishes fake
+ * would), then drives teleop with the driver controller through the real TeleopDrive command, and publishes fake
  * Limelight data on the same NetworkTables keys a real Limelight 4 uses, so the whole vision path
  * (LimelightHelpers parsing, filter, weighting, logging) runs. The fake camera includes the 2026
  * mttd q8 bad solve (field center, facing 0 degrees) and wild single-tag estimates, so rejections
@@ -98,7 +98,7 @@ public final class SimSmoke {
         } else if (t >= 4 && t < 5) {
             left = -0.6;  // field-centric, toward the right-hand wall, away from the hub
         }
-        // ManualDriveCommand negates the sticks (stick up is negative Y on a real controller).
+        // RobotContainer negates the sticks (stick up is negative Y on a real controller).
         driver.setLeftY(-forward);
         driver.setLeftX(-left);
         driver.setRightX(-rotate);

@@ -19,7 +19,7 @@ out. None of this has been tried yet.
 
 ## 2. Vision timestamps (the one that fails silently)
 
-`CommandSwerveDrivetrain.addVisionMeasurement` converts the Limelight's capture time with
+The generated `CommandSwerveDrivetrain.addVisionMeasurement` converts the Limelight's capture time with
 `Utils.fpgaToCurrentTime`. That assumes the roboRIO's FPGA clock. SystemCore has no FPGA. If the
 time base is wrong, every vision measurement is applied at the wrong moment, the pose gets worse
 while the robot moves, and nothing reports an error.
@@ -41,12 +41,14 @@ works on SystemCore and that the analyzer's power check still gets data.
 
 ## 5. Every season, whatever the hardware
 
-- Regenerate `generated/TunerConstants.java` in Tuner X. Do not edit it; team changes go in
-  `SwerveConfigOverrides`.
+- Regenerate the drivetrain in Tuner X and copy `generated/TunerConstants.java`,
+  `subsystems/CommandSwerveDrivetrain.java` and `Telemetry.java` over the old ones. Do not edit
+  them; team changes go in `Drivetrain` and `SwerveConfigOverrides`. Read the diff: if CTRE changed
+  how `addVisionMeasurement` converts timestamps, that is section 2 above.
 - Camera positions and names in `Constants.VisionConstants`.
 - The field: WPILib's default AprilTag layout updates with WPILib, and the vision filter's field
   size follows it. maple-sim's field structures change too, so re-check the simulation start pose in
-  `CommandSwerveDrivetrain.startSimThread` (a robot started inside a structure just pushes on it).
+  `Drivetrain.startMapleSim` (a robot started inside a structure just pushes on it).
 - BLine: robot size and the default speed/acceleration limits in
   `src/main/deploy/autos/config.json`, and the season's paths in `src/main/deploy/autos/paths/`.
 - `docs/analyzer-robot.toml`: CAN IDs, limits, camera names, field size. Copy it to the analyzer.

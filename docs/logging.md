@@ -30,12 +30,12 @@ All `Drive/...` and `Vision/...` names below are under `/RealOutputs/`.
 
 | Signal | Written by | Used for |
 |---|---|---|
-| `Drive/Pose` | CommandSwerveDrivetrain | fused pose, pose jumps |
-| `Drive/MeasuredSpeeds`, `Drive/TargetStates`, `Drive/MeasuredStates` | CommandSwerveDrivetrain | speed, heading-hold check |
+| `Drive/Pose` | Drivetrain | fused pose, pose jumps |
+| `Drive/MeasuredSpeeds`, `Drive/TargetStates`, `Drive/MeasuredStates` | Drivetrain | speed, heading-hold check |
 | `Drive/Modules/<Module>/...` (speeds, angles, currents, temps, `Connected`, `Faults`, `Encoder/MagnetHealth`, `Steer/ErrorDegrees`) | SwerveModuleDiagnostics | module comparison, device health |
 | `Drive/Config/Verified`, `Drive/Config/Mismatches` | SwerveConfigOverrides | config reached the motors |
-| `Drive/Input/Forward`, `Left`, `Rotation`, `State` | ManualDriveCommand | when the driver was driving; heading hold |
-| `BatteryVoltage`, `Power/TotalCurrent`, `Power/Voltage` | CommandSwerveDrivetrain, Robot | battery sag, resistance |
+| `Drive/Input/Forward`, `Left`, `Rotation`, `State` | TeleopDrive | when the driver was driving; heading hold. `State` values (`IDLING`, `DRIVING_WITH_MANUAL_ROTATION`, `DRIVING_WITH_LOCKED_HEADING`) are matched as strings |
+| `BatteryVoltage`, `Power/TotalCurrent`, `Power/Voltage` | Drivetrain, Robot | battery sag, resistance |
 | `Vision/Poses`, `TagCounts`, `AvgTagDists`, `StdDevsXY`, `StdDevsTheta`, `Latencies`, `EstimateCount` | Vision | estimate quality, bad solves |
 | `Vision/GyroYawDegrees` | Vision | the heading sent to the cameras (also used as "how the robot rotated") |
 | `Console` | AdvantageKit | timeline; `System.out.println` lines land here |
@@ -62,6 +62,7 @@ a log (with `--robot robot/2027.toml`), so renaming one has the same cost as the
 | `Drive/OdometryPose` | wheels + gyro only, never corrected by vision |
 | `Drive/VisionCorrectionMeters` | distance between `Drive/Pose` and `Drive/OdometryPose`: how far vision has moved the pose overall |
 | `Drive/GyroYawDegrees` | raw Pigeon heading (unaffected by pose resets) |
+| `Drive/Input/TargetHeadingDegrees`, `Drive/Input/HeadingErrorDegrees` | the heading `TeleopDrive` is holding (field frame) and how far the robot is from it; both 0 at rest |
 | `Auto/Selected`, `Auto/SelectedLoaded`, `Auto/StartPose` | while disabled: the chosen auto, whether its path files loaded, and where to place the robot (already flipped for red) |
 | `Auto/FollowPath/...` | everything BLine reports while following a path: `pathTranslations` (the path), `robotTranslations` (where the robot went), `crossTrackError`, `rotationErrorDeg`, `remainingPathDistanceMeters`, `finished`, event trigger counts, and more |
 

@@ -19,7 +19,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.lib.BLine.FlippingUtil;
 import frc.robot.lib.BLine.FollowPath;
 import frc.robot.lib.BLine.Path;
-import frc.robot.subsystems.drive.CommandSwerveDrivetrain;
+import frc.robot.subsystems.drive.Drivetrain;
 
 /**
  * Autonomous routines, followed with BLine.
@@ -92,7 +92,7 @@ public class Autos {
         FollowPath.registerEventTrigger(key, command);
     }
 
-    private final CommandSwerveDrivetrain drivetrain;
+    private final Drivetrain drivetrain;
     private final SwerveRequest.ApplyRobotSpeeds applyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
     private final SendableChooser<AutoOption> chooser = new SendableChooser<>();
     private final FollowPath.Builder firstPathBuilder;
@@ -103,7 +103,7 @@ public class Autos {
     private List<Path> loadedPaths = Collections.emptyList();
     private Pose2d loadedStartPose = null;
 
-    public Autos(CommandSwerveDrivetrain drivetrain) {
+    public Autos(Drivetrain drivetrain) {
         this.drivetrain = drivetrain;
         routeBLineLogging();
 
@@ -122,7 +122,7 @@ public class Autos {
         nextPathBuilder = newPathBuilder(drivetrain);
     }
 
-    private FollowPath.Builder newPathBuilder(CommandSwerveDrivetrain drivetrain) {
+    private FollowPath.Builder newPathBuilder(Drivetrain drivetrain) {
         // CTRE's state.Speeds and ApplyRobotSpeeds are both robot-relative, which is what BLine expects.
         return new FollowPath.Builder(
                 drivetrain,

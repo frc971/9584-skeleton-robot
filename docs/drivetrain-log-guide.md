@@ -79,7 +79,8 @@ Outside the module folders:
 |---|---|
 | `Drive/AnyModuleFault` | True if any module has any problem. Check this first. |
 | `Drive/Input/Forward`, `Left`, `Rotation` | The driver's stick input after deadband and curve, from -1 to 1. This is what the code actually sent to the drivetrain. |
-| `Drive/Input/State` | What the drive command was doing: `IDLING`, `DRIVING_WITH_MANUAL_ROTATION`, or `DRIVING_WITH_LOCKED_HEADING` |
+| `Drive/Input/State` | What the drive command was doing: `IDLING` (sticks centered, robot stopped), `DRIVING_WITH_MANUAL_ROTATION` (the rotation stick is turning the robot), or `DRIVING_WITH_LOCKED_HEADING` (driving with the rotation stick centered, holding the heading) |
+| `Drive/Input/TargetHeadingDegrees`, `HeadingErrorDegrees` | The heading the code is trying to face, and how far off the robot is. A large error that does not shrink means the robot is being pushed or the heading gains need tuning |
 | `DriverStation/Joystick0/...` | The raw Xbox controller axes and buttons, before the code touches them |
 | `BatteryVoltage` | Battery voltage. Below about 7 V the roboRIO browns out and motors cut out |
 | `Power/TotalCurrent` | Total current from the battery |
