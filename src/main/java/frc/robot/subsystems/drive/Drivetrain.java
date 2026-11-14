@@ -3,8 +3,6 @@ package frc.robot.subsystems.drive;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Seconds;
 
-import java.util.function.Supplier;
-
 import org.littletonrobotics.junction.Logger;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -14,48 +12,47 @@ import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
-import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
-import edu.wpi.first.math.numbers.N1;
-import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Subsystem;
 import frc.robot.generated.TunerConstants;
-import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
+import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.drive.sim.MapleSimSwerveDrivetrain;
 import frc.robot.subsystems.drive.sim.SimSwerveConstants;
 import frc.robot.vision.Vision;
 
 /**
- * The swerve drivetrain: CTRE's generated {@link TunerSwerveDrivetrain} plus the team's overrides,
- * diagnostics, logging and simulation. Autonomous path following (BLine) is in frc.robot.auto.Autos.
+ * The team's drivetrain: Tuner X's generated {@link CommandSwerveDrivetrain} plus 9584's overrides,
+ * diagnostics, logging and maple-sim physics.
  *
- * <p>Regenerating the drivetrain in Tuner X replaces {@code generated/TunerConstants.java} only.
- * Nothing in this file or in {@link SwerveConfigOverrides} needs to change when that happens.
+ * <p>{@code generated/TunerConstants.java} and {@code subsystems/CommandSwerveDrivetrain.java} are
+ * Tuner X output and are never edited. Each season, generate a new project in Tuner X, copy those
+ * two files (and {@code Telemetry.java}) over the old ones, and read the diff to see what CTRE
+ * changed. Everything the team adds lives here, so nothing is lost when they are replaced.
  *
- * <p>Logged signals (all under /RealOutputs/Drive/ unless noted) are listed in docs/logging.md and
- * explained for students in docs/drivetrain-log-guide.md.
+ * <p>Things the generated class already does, so they are not repeated here: alliance operator
+ * perspective, SysId routines, and converting vision timestamps from the FPGA clock to Phoenix's
+ * clock in {@code addVisionMeasurement} (re-check that conversion first when porting to 2027; see
+ * docs/porting-2027.md).
+ *
+ * <p>Logged signals (all under /RealOutputs/Drive/) are listed in docs/logging.md and explained for
+ * students in docs/drivetrain-log-guide.md.
  */
-public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem, Vision.PoseEstimator {
-    private static final double kSimLoopPeriod = 0.004; // 4 ms
+public class Drivetrain extends CommandSwerveDrivetrain implements Vision.PoseEstimator {
+    /**
+     * maple-sim's step size. It is stepped by the generated class's simulation thread, which runs
+     * every 4 ms (CommandSwerveDrivetrain.kSimLoopPeriod); keep the two equal.
+     */
+    private static final double kSimLoopPeriod = 0.004;
     private static final double kBumpTiltThresholdDegrees = 5.0;
     private static final double kOdometryUpdateFrequencyHz = 100.0;
     private static final double kTelemetryUpdateFrequencyHz = 20.0;
-
-    /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
-    private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
-    /* Red alliance sees forward as 180 degrees (toward blue alliance wall) */
-    private static final Rotation2d kRedAlliancePerspectiveRotation = Rotation2d.k180deg;
-    private boolean m_hasAppliedOperatorPerspective = false;
 
     private final SwerveRequest.SwerveDriveBrake lockWheelsRequest = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.Idle idleRequest = new SwerveRequest.Idle();
@@ -73,14 +70,19 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
      */
     private final SwerveDriveOdometry rawOdometry;
 
-    private Notifier m_simNotifier = null;
-    private MapleSimSwerveDrivetrain mapleSimSwerveDrivetrain = null;
+    /**
+     * Set once the physics model exists. The generated class starts its simulation thread inside its
+     * constructor, before this field is assigned, so {@link #updateSimState} must handle null.
+     */
+    private volatile MapleSimSwerveDrivetrain mapleSim = null;
 
-    public CommandSwerveDrivetrain(SwerveDrivetrainConstants drivetrainConstants,
-        SwerveModuleConstants<?, ?, ?>... modules) {
+    /** Counts pose and heading resets; see {@link #headingResetCount()}. */
+    private int headingResetCount = 0;
+
+    public Drivetrain(SwerveDrivetrainConstants drivetrainConstants, SwerveModuleConstants<?, ?, ?>... modules) {
         // regulate...: in simulation only, strips the real robot's encoder offsets and inversions.
-        // Without it every simulated wheel points somewhere arbitrary and they fight each other
-        // (the 2026 robot never called it). It does nothing on a real robot.
+        // Without it every simulated wheel points somewhere arbitrary and they fight each other.
+        // It does nothing on a real robot.
         super(drivetrainConstants, kOdometryUpdateFrequencyHz,
             SwerveConfigOverrides.apply(MapleSimSwerveDrivetrain.regulateModuleConstantsForSimulation(modules)));
 
@@ -96,13 +98,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         rawOdometry = new SwerveDriveOdometry(getKinematics(), state.RawHeading, state.ModulePositions, state.Pose);
 
         if (Utils.isSimulation()) {
-            startSimThread();
+            startMapleSim();
         }
-    }
-
-    /** Returns a command that applies the given control request to the drivetrain every loop. */
-    public Command applyRequest(Supplier<SwerveRequest> requestSupplier) {
-        return run(() -> this.setControl(requestSupplier.get()));
     }
 
     public Command lockWheelsCommand() {
@@ -113,16 +110,16 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         setControl(idleRequest);
     }
 
-    /** Field-relative "forward" for the current alliance becomes the robot's current heading. */
-    public void zeroHeading() {
-        Rotation2d forward = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red
-            ? kRedAlliancePerspectiveRotation
-            : kBlueAlliancePerspectiveRotation;
-        resetRotation(forward);
-        seedFieldCentric();
+    /**
+     * Goes up by one every time the pose or heading is reset (auto start, the driver's re-zero
+     * button). A command that holds a heading compares this between loops and drops its target when
+     * it changes, because the old target is relative to a heading that no longer exists.
+     */
+    public int headingResetCount() {
+        return headingResetCount;
     }
 
-    // ---- Vision.PoseEstimator ----
+    // ---- Vision.PoseEstimator (addVisionMeasurement is the generated class's) ----
 
     @Override
     public Pose2d pose() {
@@ -134,37 +131,19 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return getState().Speeds.omegaRadiansPerSecond;
     }
 
-    /**
-     * Vision timestamps come from the Limelight on the FPGA clock; the Phoenix pose estimator runs
-     * on its own clock. This is the ONE place that converts between them.
-     * <p>SystemCore has no FPGA. When porting to 2027, re-check this conversion first: a wrong time
-     * base applies every vision measurement at the wrong moment and nothing errors. See
-     * docs/porting-2027.md.
-     */
-    @Override
-    public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds,
-        Matrix<N3, N1> visionMeasurementStdDevs) {
-        super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds),
-            visionMeasurementStdDevs);
-    }
-
-    @Override
-    public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds) {
-        super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds));
-    }
-
     // ---- periodic + logging ----
 
     @Override
     public void periodic() {
-        applyOperatorPerspective();
+        super.periodic(); // operator perspective
 
         SwerveDriveState state = getState();
         Pose2d odometryPose = rawOdometry.update(state.RawHeading, state.ModulePositions);
 
-        if (mapleSimSwerveDrivetrain != null) {
+        MapleSimSwerveDrivetrain sim = mapleSim;
+        if (sim != null) {
             // In simulation the physics model is the truth; keep the estimator on it.
-            Pose2d simPose = mapleSimSwerveDrivetrain.mapleSimDrive.getSimulatedDriveTrainPose();
+            Pose2d simPose = sim.mapleSimDrive.getSimulatedDriveTrainPose();
             super.resetPose(simPose);
             Logger.recordOutput("Drive/Pose", simPose);
         } else {
@@ -195,24 +174,6 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         Logger.recordOutput("Drive/TargetStates", state.ModuleTargets);
         Logger.recordOutput("Drive/MeasuredStates", state.ModuleStates);
         Logger.recordOutput("Drive/MeasuredSpeeds", state.Speeds);
-    }
-
-    /**
-     * Applies the operator perspective once at startup (so a mid-match code restart drives
-     * correctly) and then only while disabled (so driving never changes under the driver).
-     */
-    private void applyOperatorPerspective() {
-        if (m_hasAppliedOperatorPerspective && !DriverStation.isDisabled()) {
-            return;
-        }
-        DriverStation.getAlliance().ifPresent(allianceColor -> {
-            setOperatorPerspectiveForward(
-                allianceColor == Alliance.Red ? kRedAlliancePerspectiveRotation : kBlueAlliancePerspectiveRotation);
-            if (!m_hasAppliedOperatorPerspective) {
-                seedFieldCentric();
-            }
-            m_hasAppliedOperatorPerspective = true;
-        });
     }
 
     /** Snapshot of sticky faults, logged once on disable so a fault that cleared is still recorded. */
@@ -252,20 +213,57 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return new Pose3d(pose2d.getX(), pose2d.getY(), 0.0, getRobotRotation3d());
     }
 
+    // ---- resets: all of them bump headingResetCount ----
+
     @Override
     public void resetPose(Pose2d pose) {
-        if (mapleSimSwerveDrivetrain != null) {
-            mapleSimSwerveDrivetrain.mapleSimDrive.setSimulationWorldPose(pose);
+        MapleSimSwerveDrivetrain sim = mapleSim;
+        if (sim != null) {
+            sim.mapleSimDrive.setSimulationWorldPose(pose);
             // Push one sim update instead of blocking the main loop
-            mapleSimSwerveDrivetrain.update();
+            sim.update();
         }
         super.resetPose(pose);
         SwerveDriveState state = getState();
         rawOdometry.resetPosition(state.RawHeading, state.ModulePositions, pose);
+        headingResetCount++;
     }
 
-    private void startSimThread() {
-        mapleSimSwerveDrivetrain = new MapleSimSwerveDrivetrain(
+    @Override
+    public void resetRotation(Rotation2d rotation) {
+        super.resetRotation(rotation);
+        headingResetCount++;
+    }
+
+    @Override
+    public void seedFieldCentric() {
+        super.seedFieldCentric();
+        headingResetCount++;
+    }
+
+    @Override
+    public void seedFieldCentric(Rotation2d rotation) {
+        super.seedFieldCentric(rotation);
+        headingResetCount++;
+    }
+
+    // ---- simulation ----
+
+    /**
+     * Called by the generated class's simulation thread every 4 ms. CTRE's version runs its own
+     * simple model; this runs maple-sim instead, which also models collisions with the field.
+     * Overriding it is what lets the generated file stay unedited.
+     */
+    @Override
+    public void updateSimState(double dtSeconds, double supplyVoltage) {
+        MapleSimSwerveDrivetrain sim = mapleSim;
+        if (sim != null) {
+            sim.update();
+        }
+    }
+
+    private void startMapleSim() {
+        MapleSimSwerveDrivetrain sim = new MapleSimSwerveDrivetrain(
             Seconds.of(kSimLoopPeriod),
             SimSwerveConstants.ROBOT_MASS,
             SimSwerveConstants.BUMPER_LENGTH_X,
@@ -280,15 +278,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             TunerConstants.FrontRight,
             TunerConstants.BackLeft,
             TunerConstants.BackRight);
-        // Run simulation faster than the robot loop so PID gains behave more realistically
-        m_simNotifier = new Notifier(mapleSimSwerveDrivetrain::update);
-        m_simNotifier.startPeriodic(kSimLoopPeriod);
 
         // Start the sim robot in open floor on the blue side, facing red. maple-sim models the
         // season's field structures (2026: the tower at the middle of the alliance wall, the hub
         // at x~4.6), so a robot started next to one just pushes against it. Re-check every season.
         Pose2d initialSimPose = new Pose2d(2.0, 2.5, Rotation2d.kZero);
-        mapleSimSwerveDrivetrain.mapleSimDrive.setSimulationWorldPose(initialSimPose);
+        sim.mapleSimDrive.setSimulationWorldPose(initialSimPose);
+        mapleSim = sim;
         resetPose(initialSimPose);
     }
 }

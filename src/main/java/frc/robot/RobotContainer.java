@@ -12,10 +12,9 @@ import frc.robot.Constants.Driving;
 import frc.robot.Constants.Field;
 import frc.robot.Constants.VisionConstants;
 import frc.robot.auto.Autos;
-import frc.robot.commands.ManualDriveCommand;
+import frc.robot.commands.TeleopDrive;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.drive.CommandSwerveDrivetrain;
-import frc.robot.util.SwerveTelemetry;
+import frc.robot.subsystems.drive.Drivetrain;
 import frc.robot.vision.LimelightCamera;
 import frc.robot.vision.Vision;
 import frc.robot.vision.VisionCamera;
@@ -32,14 +31,15 @@ import frc.robot.vision.VisionStdDevs;
  * video).
  */
 public class RobotContainer {
-    private final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    // Built directly rather than with TunerConstants.createDrivetrain(), which makes the generated
+    // CommandSwerveDrivetrain without the team's additions.
+    private final Drivetrain drivetrain = new Drivetrain(TunerConstants.DrivetrainConstants,
+        TunerConstants.FrontLeft, TunerConstants.FrontRight, TunerConstants.BackLeft, TunerConstants.BackRight);
     private final Vision vision;
     private final Autos autos;
-    private final SwerveTelemetry swerveTelemetry =
-        new SwerveTelemetry(Driving.kMaxSpeed.in(MetersPerSecond), drivetrain::getRobotRotation3d);
+    private final Telemetry telemetry = new Telemetry(Driving.kMaxSpeed.in(MetersPerSecond));
 
     private final CommandXboxController driver = new CommandXboxController(0);
-    private final ManualDriveCommand manualDrive;
 
     public RobotContainer() {
         vision = new Vision(
@@ -49,13 +49,14 @@ public class RobotContainer {
             new VisionStdDevs(VisionStdDevs.Config.defaults()),
             drivetrain);
 
-        manualDrive = new ManualDriveCommand(
+        // Xbox axes are positive for down and right; the robot's are positive forward, left, and
+        // counterclockwise, hence the minus signs.
+        drivetrain.setDefaultCommand(new TeleopDrive(
             drivetrain,
             () -> -driver.getLeftY(),
             () -> -driver.getLeftX(),
-            () -> -driver.getRightX());
-        drivetrain.setDefaultCommand(manualDrive);
-        drivetrain.registerTelemetry(swerveTelemetry::telemeterize);
+            () -> -driver.getRightX()));
+        drivetrain.registerTelemetry(telemetry::telemeterize);
 
         configureBindings();
         registerAutoEvents();
@@ -69,7 +70,7 @@ public class RobotContainer {
     }
 
     private void configureBindings() {
-        driver.back().onTrue(Commands.runOnce(manualDrive::seedFieldCentric).ignoringDisable(true));
+        driver.back().onTrue(Commands.runOnce(drivetrain::seedFieldCentric).ignoringDisable(true));
         driver.rightStick().whileTrue(drivetrain.lockWheelsCommand());
         driver.start().onTrue(vision.saveRewindCommand());
 
